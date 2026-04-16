@@ -253,39 +253,6 @@ tr:last-child td{border-bottom:none;}
 })();
 </script>
 
-<!-- ── PWA: Service Worker registration ─────────────────────────── -->
-<script>
-if('serviceWorker' in navigator){
-  const SW=`
-const CACHE='iron-ledger-v1';
-const ASSETS=['./'];
-self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
-});
-self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
-});
-self.addEventListener('fetch',e=>{
-  e.respondWith(caches.match(e.request).then(cached=>{
-    if(cached) return cached;
-    return fetch(e.request).then(res=>{
-      if(res&&res.status===200&&res.type==='basic'){
-        const clone=res.clone();
-        caches.open(CACHE).then(c=>c.put(e.request,clone));
-      }
-      return res;
-    }).catch(()=>cached);
-  }));
-});
-`;
-  // Blob SW works when served over HTTP(S) — i.e. GitHub Pages
-  const blob=new Blob([SW],{type:'text/javascript'});
-  const url=URL.createObjectURL(blob);
-  navigator.serviceWorker.register(url,{scope:'./'}).catch(()=>{
-    // Blob SW scope limitation on some browsers — fallback silently
-  });
-}
-</script>
 
 </head>
 <body>
@@ -893,7 +860,7 @@ const A = {
     const reader = new FileReader();
     reader.onload = async ev => {
       try {
-        const SQL = await initSqlJs({ locateFile: f => f });
+        const SQL = await initSqlJs({ locateFile: f => new URL(f, document.baseURI).href });
         this.db = new SQL.Database(new Uint8Array(ev.target.result));
         this.persist();
         this.tab(this.currentTab);
@@ -3080,7 +3047,7 @@ const A = {
   async init() {
     let SQL;
     try {
-      SQL = await initSqlJs({ locateFile: f => f });
+      SQL = await initSqlJs({ locateFile: f => new URL(f, document.baseURI).href });
     } catch(e) {
       document.getElementById('loading').innerHTML='<h2 style="color:var(--red)">Error</h2><p>Could not load SQLite engine. Please check your internet connection and reload.</p>';
       return;
