@@ -860,7 +860,10 @@ const A = {
     const reader = new FileReader();
     reader.onload = async ev => {
       try {
-        const SQL = await initSqlJs({ locateFile: f => new URL(f, document.baseURI).href });
+        const wasmUrl = new URL('sql-wasm.wasm', document.baseURI).href;
+        const wasmResp = await fetch(wasmUrl);
+        const wasmBinary = new Uint8Array(await wasmResp.arrayBuffer());
+        const SQL = await initSqlJs({ wasmBinary });
         this.db = new SQL.Database(new Uint8Array(ev.target.result));
         this.persist();
         this.tab(this.currentTab);
@@ -3047,9 +3050,19 @@ const A = {
   async init() {
     let SQL;
     try {
-      SQL = await initSqlJs({ locateFile: f => new URL(f, document.baseURI).href });
+      const wasmUrl = new URL('sql-wasm.wasm', document.baseURI).href;
+      let wasmBinary;
+      try {
+        const resp = await fetch(wasmUrl);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status + ' fetching ' + wasmUrl);
+        wasmBinary = new Uint8Array(await resp.arrayBuffer());
+      } catch(fetchErr) {
+        document.getElementById('loading').innerHTML='<h2 style="color:var(--red)">Load Error</h2><p style="font-size:.8rem;line-height:1.6;margin-top:8px">' + fetchErr.message + '</p>';
+        return;
+      }
+      SQL = await initSqlJs({ wasmBinary });
     } catch(e) {
-      document.getElementById('loading').innerHTML='<h2 style="color:var(--red)">Error</h2><p>Could not load SQLite engine. Please check your internet connection and reload.</p>';
+      document.getElementById('loading').innerHTML='<h2 style="color:var(--red)">SQLite Error</h2><p style="font-size:.8rem;line-height:1.6;margin-top:8px">' + e.message + '</p>';
       return;
     }
 
